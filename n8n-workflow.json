@@ -93,7 +93,7 @@
         },
         {
             "parameters": {
-                "model": "gpt-4-turbo",
+                "model": "gemini-pro",
                 "messages": {
                     "messageValues": [
                         {
@@ -106,14 +106,14 @@
             },
             "id": "llm-categorize",
             "name": "LLM: Categorize",
-            "type": "n8n-nodes-base.openAi",
+            "type": "n8n-nodes-base.googleGenerativeAi",
             "typeVersion": 1,
             "position": [
                 1050,
                 100
             ],
             "credentials": {
-                "openAiApi": "openAiCredentials"
+                "googleGenerativeAiApi": "googleGenerativeAiApi"
             }
         },
         {
@@ -178,7 +178,7 @@
         },
         {
             "parameters": {
-                "model": "gpt-4-turbo",
+                "model": "gemini-pro",
                 "messages": {
                     "messageValues": [
                         {
@@ -191,14 +191,14 @@
             },
             "id": "llm-generate-response",
             "name": "LLM: Generate Response",
-            "type": "n8n-nodes-base.openAi",
+            "type": "n8n-nodes-base.googleGenerativeAi",
             "typeVersion": 1,
             "position": [
                 1650,
                 400
             ],
             "credentials": {
-                "openAiApi": "openAiCredentials"
+                "googleGenerativeAiApi": "googleGenerativeAiApi"
             }
         },
         {
