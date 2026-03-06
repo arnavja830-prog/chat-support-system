@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Support System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            height: 90vh;
+            max-height: 800px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .header-info {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .active-users {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .message.sent {
+            align-items: flex-end;
+        }
+
+        .message.received {
+            align-items: flex-start;
+        }
+
+        .sender-name {
+            font-size: 12px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .message-content {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            max-width: 80%;
+            word-wrap: break-word;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .message.sent .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 18px 18px 4px 18px;
+        }
+
+        .message.received .message-content {
+            background: #e8eaed;
+            border-radius: 18px 18px 18px 4px;
+        }
+
+        .message-text {
+            margin-bottom: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .message-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 6px;
+            margin-top: 8px;
+            cursor: pointer;
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            padding: 12px 16px;
+            background: #e8eaed;
+            border-radius: 18px;
+            width: fit-content;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #999;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+
+            0%,
+            60%,
+            100% {
+                opacity: 0.3;
+            }
+
+            30% {
+                opacity: 1;
+            }
+        }
+
+        .input-area {
+            padding: 16px;
+            border-top: 1px solid #e0e0e0;
+            background: white;
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        input[type="text"],
+        input[type="file"] {
+            font-family: inherit;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 24px;
+            font-size: 14px;
+            resize: none;
+            max-height: 100px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: #f0f0f0;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: background 0.2s;
+        }
+
+        .upload-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .send-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .send-btn:active {
+            transform: scale(0.95);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .image-preview {
+            max-width: 150px;
+            max-height: 150px;
+            border-radius: 8px;
+            margin-top: 8px;
+            position: relative;
+        }
+
+        .remove-image {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .username-input {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 24px;
+            font-size: 14px;
+            width: 150px;
+            font-family: inherit;
+        }
+
+        .username-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #999;
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                max-width: 100%;
+                height: 100vh;
+                border-radius: 0;
+            }
+
+            .message-content {
+                max-width: 90%;
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 12px;
+            overflow: auto;
+        }
+
+        .modal-img {
+            width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <div class="header-title">💬 Chat Support</div>
+                <div class="header-info">Powered by n8n</div>
+            </div>
+            <div class="active-users">
+                <span class="status-dot"></span>
+                <span id="activeCount">1 online</span>
+            </div>
+        </div>
+
+        <!-- Messages Container -->
+        <div class="messages-container" id="messagesContainer">
+            <div class="empty-state">
+                <div class="empty-state-icon">💭</div>
+                <p>No messages yet. Start a conversation!</p>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-area">
+            <input type="text" id="usernameInput" class="username-input" placeholder="Your name..." value="Guest">
+            <div class="input-wrapper">
+                <div style="position: relative;">
+                    <input type="file" id="fileInput" class="file-input" accept="image/*">
+                    <button class="upload-btn" id="uploadBtn" title="Upload image">📎</button>
+                </div>
+                <div style="flex: 1; position: relative;">
+                    <textarea id="messageInput" class="message-input" placeholder="Type a message..."
+                        rows="1"></textarea>
+                    <div id="imagePreview"></div>
+                </div>
+                <button class="send-btn" id="sendBtn" title="Send message">📤</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div class="modal" id="imageModal">
+        <img id="modalImage" class="modal-img" src="" alt="">
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const messagesContainer = document.getElementById('messagesContainer');
+        const messageInput = document.getElementById('messageInput');
+        const usernameInput = document.getElementById('usernameInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileInput = document.getElementById('fileInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const activeCountEl = document.getElementById('activeCount');
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+
+        let selectedImage = null;
+        let isFirstMessage = true;
+
+        // Focus username input on load
+        window.addEventListener('load', () => {
+            usernameInput.focus();
+        });
+
+        // Auto-resize textarea
+        messageInput.addEventListener('input', () => {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 100) + 'px';
+        });
+
+        // Upload button click
+        uploadBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    selectedImage = event.target.result;
+                    displayImagePreview(selectedImage);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Display image preview
+        function displayImagePreview(imageData) {
+            imagePreview.innerHTML = `
+        <div style="position: relative; display: inline-block;">
+          <img src="${imageData}" class="image-preview">
+          <button class="remove-image" onclick="removeSelectedImage()">×</button>
+        </div>
+      `;
+        }
+
+        // Remove selected image
+        window.removeSelectedImage = () => {
+            selectedImage = null;
+            imagePreview.innerHTML = '';
+            fileInput.value = '';
+        };
+
+        // Send message
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            const sender = usernameInput.value.trim() || 'Guest';
+
+            if (!text && !selectedImage) return;
+
+            const messageData = {
+                sender,
+                text,
+                image: selectedImage
+            };
+
+            // Send via socket
+            socket.emit('sendMessage', messageData);
+
+            // Update UI
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            removeSelectedImage();
+
+            // Clear empty state
+            if (isFirstMessage) {
+                messagesContainer.innerHTML = '';
+                isFirstMessage = false;
+            }
+        }
+
+        // Send button click
+        sendBtn.addEventListener('click', sendMessage);
+
+        // Enter to send (Shift+Enter for new line)
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Typing indicator
+        let typingTimeout;
+        messageInput.addEventListener('input', () => {
+            socket.emit('typing', { sender: usernameInput.value || 'Guest', isTyping: true });
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                socket.emit('typing', { sender: usernameInput.value || 'Guest', isTyping: false });
+            }, 1000);
+        });
+
+        // Socket event listeners
+        socket.on('newMessage', (messageData) => {
+            const isSent = messageData.sender === (usernameInput.value || 'Guest');
+            const messageElement = createMessageElement(messageData, isSent);
+            messagesContainer.appendChild(messageElement);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        });
+
+        socket.on('activeUsers', (count) => {
+            activeCountEl.textContent = `${count} online`;
+        });
+
+        socket.on('userTyping', (data) => {
+            // Could implement typing indicators here
+        });
+
+        // Create message element
+        function createMessageElement(messageData, isSent) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+
+            let content = `
+        <div class="sender-name">${messageData.sender}</div>
+        <div class="message-content">
+      `;
+
+            if (messageData.text) {
+                content += `<div class="message-text">${escapeHtml(messageData.text)}</div>`;
+            }
+
+            if (messageData.image) {
+                content += `
+          <img src="${messageData.image}" class="message-image" onclick="openImageModal('${messageData.image}')">
+        `;
+            }
+
+            const time = new Date(messageData.timestamp).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            content += `
+        </div>
+        <div class="message-time">${time}</div>
+      `;
+
+            msgDiv.innerHTML = content;
+            return msgDiv;
+        }
+
+        // Utility function to escape HTML
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Image modal
+        window.openImageModal = (imageSrc) => {
+            modalImage.src = imageSrc;
+            imageModal.classList.add('active');
+        };
+
+        imageModal.addEventListener('click', () => {
+            imageModal.classList.remove('active');
+        });
+
+        // Load message history
+        fetch('/api/messages')
+            .then(res => res.json())
+            .then(data => {
+                if (data.length > 0) {
+                    isFirstMessage = false;
+                    messagesContainer.innerHTML = '';
+                    data.forEach(msg => {
+                        const isSent = msg.sender === (usernameInput.value || 'Guest');
+                        const msgEl = createMessageElement(msg, isSent);
+                        messagesContainer.appendChild(msgEl);
+                    });
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            });
+    </script>
+</body>
+
+</html>
