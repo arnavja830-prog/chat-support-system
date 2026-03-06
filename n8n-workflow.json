@@ -1,0 +1,538 @@
+{
+    "name": "AI Chat Support System",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "c455f220-a6ac-4e60-b914-ad267d192c19",
+                "authentication": "none",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                100
+            ],
+            "webhookId": "c455f220-a6ac-4e60-b914-ad267d192c19"
+        },
+        {
+            "parameters": {
+                "jsCode": "const input = $input.first().json; return { sender: input.params?.arguments?.sender || 'Unknown', message: input.params?.arguments?.text || '', hasImage: input.params?.arguments?.hasImage || false, timestamp: input.params?.arguments?.timestamp || new Date().toISOString(), messageId: input.params?.arguments?.messageId || '' };"
+            },
+            "id": "extract-data",
+            "name": "Extract Message Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                450,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.hasImage }}",
+                            "condition": "===",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "if-has-image",
+            "name": "Has Image?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                650,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "return { ocr_text: 'Text extracted from image', ocr_confidence: 0.95 };"
+            },
+            "id": "ocr-extract",
+            "name": "OCR Extract Text",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                450,
+                250
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "return { ocr_text: '', ocr_confidence: 0 };"
+            },
+            "id": "no-image-branch",
+            "name": "No Image",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                450,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const prev = $input.first().json; const fullText = 'User Message: ' + prev.message + (prev.ocr_text ? ' Image Text: ' + prev.ocr_text : ''); return { sender: prev.sender, originalMessage: prev.message, ocr_text: prev.ocr_text || '', fullText: fullText, timestamp: prev.timestamp, messageId: prev.messageId, hasImage: prev.hasImage };"
+            },
+            "id": "combine-text",
+            "name": "Combine Text",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                850,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "model": "gpt-4-turbo",
+                "messages": {
+                    "messageValues": [
+                        {
+                            "content": "Categorize into: Technical Issue, Billing Problem, Account Access, Refund Request, Feature Request, General Inquiry, Complaint, or Other. Respond with ONLY the category name. Message: {{ $json.fullText }}",
+                            "role": "user"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "llm-categorize",
+            "name": "LLM: Categorize",
+            "type": "n8n-nodes-base.openAi",
+            "typeVersion": 1,
+            "position": [
+                1050,
+                100
+            ],
+            "credentials": {
+                "openAiApi": "openAiCredentials"
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const response = $input.first().json; const text = response.choices[0].message.content.trim(); return { category: text, confidence: 0.9 };"
+            },
+            "id": "parse-category",
+            "name": "Parse Category",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1250,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const category = $input.first().json.category; const kb = { 'Billing Problem': {found:true, solution:'Check invoice in settings. Update payment in Billing > Payment Methods.'}, 'Account Access': {found:true, solution:'Click Forgot Password on login page and check your email.'}, 'Refund Request': {found:true, solution:'Refunds process in 5-7 days. Check Account > Refund History.'}, 'Technical Issue': {found:false, solution:null}}; const result = kb[category] || {found:false, solution:null}; return { kb_found: result.found, kb_solution: result.solution, kb_category: category };"
+            },
+            "id": "kb-lookup",
+            "name": "KB Lookup",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1450,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.kb_found }}",
+                            "condition": "===",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "if-kb-found",
+            "name": "KB Solution Found?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                1650,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "return { response_type: 'kb_solution', response: $input.first().json.kb_solution, source: 'Knowledge Base', category: $input.first().json.category };"
+            },
+            "id": "format-kb-response",
+            "name": "Format KB Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1650,
+                250
+            ]
+        },
+        {
+            "parameters": {
+                "model": "gpt-4-turbo",
+                "messages": {
+                    "messageValues": [
+                        {
+                            "content": "You are a professional support agent. Respond helpfully in 2-3 sentences. Category: {{ $json.category }} Message: {{ $json.fullText }}",
+                            "role": "user"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "llm-generate-response",
+            "name": "LLM: Generate Response",
+            "type": "n8n-nodes-base.openAi",
+            "typeVersion": 1,
+            "position": [
+                1650,
+                400
+            ],
+            "credentials": {
+                "openAiApi": "openAiCredentials"
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const response = $input.first().json; return { response_type: 'llm_generated', response: response.choices[0].message.content, source: 'AI Agent', category: response.category };"
+            },
+            "id": "parse-llm-response",
+            "name": "Parse LLM Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1850,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const prev = $input.first().json; return { response_type: prev.response_type, response: prev.response, source: prev.source, category: prev.category };"
+            },
+            "id": "merge-responses",
+            "name": "Merge Responses",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1900,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://localhost:8000/api/send-response",
+                "authentication": "none",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "response",
+                            "value": "={{ $json.response }}"
+                        },
+                        {
+                            "name": "source",
+                            "value": "={{ $json.source }}"
+                        },
+                        {
+                            "name": "category",
+                            "value": "={{ $json.category }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "send-response-to-chat",
+            "name": "Send Response to Chat",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                2100,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $input.first().json; return { ticket_title: '[' + data.category + '] Ticket', ticket_description: 'Category: ' + data.category + ', Message: ' + data.originalMessage, priority: data.category === 'Complaint' ? 'High' : 'Medium', status: 'open', assigned_to: 'support_team' };"
+            },
+            "id": "create-ticket",
+            "name": "Create Ticket",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2100,
+                250
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://localhost:3000/api/tickets",
+                "authentication": "none",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "ticket_title",
+                            "value": "={{ $json.ticket_title }}"
+                        },
+                        {
+                            "name": "ticket_description",
+                            "value": "={{ $json.ticket_description }}"
+                        },
+                        {
+                            "name": "priority",
+                            "value": "={{ $json.priority }}"
+                        },
+                        {
+                            "name": "assigned_to",
+                            "value": "={{ $json.assigned_to }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "post-ticket",
+            "name": "Post Ticket to System",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                2300,
+                250
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "return { status: 'completed' };"
+            },
+            "id": "end-node",
+            "name": "End",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2400,
+                100
+            ]
+        }
+    ],
+    "connections": {
+        "webhook-trigger": {
+            "main": [
+                [
+                    {
+                        "node": "extract-data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "extract-data": {
+            "main": [
+                [
+                    {
+                        "node": "if-has-image",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "if-has-image": {
+            "main": [
+                [
+                    {
+                        "node": "ocr-extract",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "no-image-branch",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "ocr-extract": {
+            "main": [
+                [
+                    {
+                        "node": "combine-text",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "no-image-branch": {
+            "main": [
+                [
+                    {
+                        "node": "combine-text",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "combine-text": {
+            "main": [
+                [
+                    {
+                        "node": "llm-categorize",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "llm-categorize": {
+            "main": [
+                [
+                    {
+                        "node": "parse-category",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "parse-category": {
+            "main": [
+                [
+                    {
+                        "node": "kb-lookup",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "kb-lookup": {
+            "main": [
+                [
+                    {
+                        "node": "if-kb-found",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "if-kb-found": {
+            "main": [
+                [
+                    {
+                        "node": "format-kb-response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "llm-generate-response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "format-kb-response": {
+            "main": [
+                [
+                    {
+                        "node": "merge-responses",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "llm-generate-response": {
+            "main": [
+                [
+                    {
+                        "node": "parse-llm-response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "parse-llm-response": {
+            "main": [
+                [
+                    {
+                        "node": "merge-responses",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "merge-responses": {
+            "main": [
+                [
+                    {
+                        "node": "send-response-to-chat",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "create-ticket",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "send-response-to-chat": {
+            "main": [
+                [
+                    {
+                        "node": "end-node",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "create-ticket": {
+            "main": [
+                [
+                    {
+                        "node": "post-ticket",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "post-ticket": {
+            "main": [
+                [
+                    {
+                        "node": "end-node",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

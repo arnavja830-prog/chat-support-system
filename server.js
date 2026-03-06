@@ -21,6 +21,8 @@ const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/mc
 // Store for messages
 let messages = [];
 let activeUsers = 0;
+let n8nConnected = false;
+let messageQueue = [];
 
 // Middleware
 app.use(express.static('public'));
@@ -35,6 +37,18 @@ app.get('/', (req, res) => {
 // API endpoint to get message history
 app.get('/api/messages', (req, res) => {
     res.json(messages);
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        activeUsers,
+        messageCount: messages.length,
+        n8nConnected,
+        n8nWebhookUrl: N8N_WEBHOOK_URL,
+        queuedMessages: messageQueue.length
+    });
 });
 
 // Socket.io connection handler
@@ -93,9 +107,58 @@ io.on('connection', (socket) => {
     });
 });
 
-// Function to send message to n8n webhook
+// Initialize MCP connection with n8n workflow
+async function initializeN8nConnection() {
+    try {
+        const initPayload = {
+            jsonrpc: '2.0',
+            method: 'initialize',
+            params: {
+                protocolVersion: '2024-11-05',
+                capabilities: {},
+                clientInfo: {
+                    name: 'chat-support-client',
+                    version: '1.0.0'
+                }
+            },
+            id: 1
+        };
+
+        const response = await axios.post(N8N_WEBHOOK_URL, initPayload, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json, text/event-stream'
+            },
+            timeout: 5000
+        });
+
+        console.log('✅ Connected to n8n workflow via MCP');
+        n8nConnected = true;
+
+        // Process any queued messages
+        while (messageQueue.length > 0) {
+            const msg = messageQueue.shift();
+            await sendToN8n(msg);
+        }
+
+        return response.data;
+    } catch (error) {
+        console.error('❌ Failed to initialize n8n connection:', error.message);
+        n8nConnected = false;
+        // Retry in 5 seconds
+        setTimeout(initializeN8nConnection, 5000);
+    }
+}
+
+// Function to send message to n8n webhook in real-time
 async function sendToN8n(messageData) {
     try {
+        if (!n8nConnected) {
+            console.log('⏳ n8n not connected, queueing message...');
+            messageQueue.push(messageData);
+            return;
+        }
+
         const payload = {
             jsonrpc: '2.0',
             method: 'call_tool',
@@ -104,9 +167,10 @@ async function sendToN8n(messageData) {
                 arguments: {
                     sender: messageData.sender,
                     text: messageData.text,
-                    image: messageData.image,
+                    image: messageData.image ? `[Image - ${Math.floor(messageData.image.length / 1024)} KB]` : null,
                     timestamp: messageData.timestamp,
-                    messageId: messageData.messageId
+                    messageId: messageData.messageId,
+                    hasImage: !!messageData.image
                 }
             },
             id: Math.floor(Math.random() * 10000)
@@ -120,11 +184,14 @@ async function sendToN8n(messageData) {
             timeout: 5000
         });
 
-        console.log('Message sent to n8n successfully');
+        console.log(`📤 Message sent to n8n from ${messageData.sender}: "${messageData.text.substring(0, 50)}${messageData.text.length > 50 ? '...' : ''}"`);
         return response.data;
     } catch (error) {
-        console.error('Error sending to n8n:', error.message);
-        // Don't throw here - we still want the message delivered to chat clients
+        console.error('❌ Error sending to n8n:', error.message);
+        // Queue the message to retry later
+        if (messageQueue.length < 100) {
+            messageQueue.push(messageData);
+        }
     }
 }
 
@@ -135,17 +202,39 @@ app.delete('/api/messages', (req, res) => {
     res.json({ message: 'Messages cleared' });
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+// n8n status endpoint
+app.get('/api/n8n-status', (req, res) => {
     res.json({
-        status: 'ok',
-        activeUsers,
-        messageCount: messages.length,
-        n8nWebhookUrl: N8N_WEBHOOK_URL
+        connected: n8nConnected,
+        webhookUrl: N8N_WEBHOOK_URL,
+        queuedMessages: messageQueue.length,
+        totalMessages: messages.length
+    });
+});
+
+// Manually reconnect to n8n
+app.post('/api/reconnect-n8n', async (req, res) => {
+    console.log('🔄 Manual reconnection triggered...');
+    n8nConnected = false;
+    await initializeN8nConnection();
+    res.json({
+        message: 'Reconnection initiated',
+        connected: n8nConnected
     });
 });
 
 server.listen(PORT, () => {
     console.log(`\n🚀 Chat Support System running on http://localhost:${PORT}`);
-    console.log(`📡 Connected to n8n webhook: ${N8N_WEBHOOK_URL}\n`);
+    console.log(`📡 Connecting to n8n workflow: ${N8N_WEBHOOK_URL}\n`);
+
+    // Initialize n8n connection on startup
+    initializeN8nConnection();
+
+    // Keep connection alive by checking n8n health every 30 seconds
+    setInterval(async () => {
+        if (!n8nConnected) {
+            console.log('🔄 Attempting to reconnect to n8n...');
+            await initializeN8nConnection();
+        }
+    }, 30000);
 });
