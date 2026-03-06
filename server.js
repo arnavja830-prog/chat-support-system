@@ -223,6 +223,89 @@ app.post('/api/reconnect-n8n', async (req, res) => {
     });
 });
 
+// Endpoint for n8n to send responses back to chat
+app.post('/api/send-response', (req, res) => {
+    try {
+        const responseData = req.body;
+
+        // Validate required fields - accept either 'response' or 'message'
+        const messageText = responseData.response || responseData.message;
+        if (!messageText) {
+            return res.status(400).json({ error: 'Missing response or message field' });
+        }
+
+        // Prepare response message
+        const responseMessage = {
+            type: 'response',
+            sender: responseData.sender || responseData.source || 'AI Assistant',
+            timestamp: new Date().toISOString(),
+            text: messageText,
+            messageId: responseData.messageId || `resp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            originalMessageId: responseData.originalMessageId || null,
+            category: responseData.category || null
+        };
+
+        // Store response in messages
+        messages.push(responseMessage);
+
+        // Broadcast response to all connected clients
+        io.emit('responseMessage', responseMessage);
+
+        console.log(`📥 Response received from n8n: "${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}"`);
+
+        res.json({ success: true, messageId: responseMessage.messageId });
+    } catch (error) {
+        console.error('❌ Error processing response:', error.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Endpoint for creating support tickets
+app.post('/api/tickets', (req, res) => {
+    try {
+        const ticketData = req.body;
+
+        // Validate required fields
+        if (!ticketData.ticket_title || !ticketData.ticket_description) {
+            return res.status(400).json({ error: 'Missing ticket_title or ticket_description' });
+        }
+
+        // Create ticket object
+        const ticket = {
+            id: `ticket_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            title: ticketData.ticket_title,
+            description: ticketData.ticket_description,
+            priority: ticketData.priority || 'Medium',
+            status: ticketData.status || 'open',
+            assigned_to: ticketData.assigned_to || 'support_team',
+            created_at: new Date().toISOString(),
+            category: ticketData.category || null
+        };
+
+        // In a real system, you would save this to a database
+        // For now, we'll just log it and store in memory
+        console.log('🎫 New support ticket created:', {
+            id: ticket.id,
+            title: ticket.title,
+            priority: ticket.priority,
+            assigned_to: ticket.assigned_to
+        });
+
+        // You could store tickets in memory like messages
+        // tickets = tickets || [];
+        // tickets.push(ticket);
+
+        res.json({
+            success: true,
+            ticket_id: ticket.id,
+            message: 'Ticket created successfully'
+        });
+    } catch (error) {
+        console.error('❌ Error creating ticket:', error.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 server.listen(PORT, () => {
     console.log(`\n🚀 Chat Support System running on http://localhost:${PORT}`);
     console.log(`📡 Connecting to n8n workflow: ${N8N_WEBHOOK_URL}\n`);

@@ -551,6 +551,12 @@
             // Could implement typing indicators here
         });
 
+        socket.on('responseMessage', (responseData) => {
+            const messageElement = createMessageElement(responseData, false);
+            messagesContainer.appendChild(messageElement);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        });
+
         // Create message element
         function createMessageElement(messageData, isSent) {
             const msgDiv = document.createElement('div');
