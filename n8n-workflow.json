@@ -3,281 +3,267 @@
     "nodes": [
         {
             "parameters": {
+                "path": "c455f220-a6ac-4e60-b914-ad267d192c19"
+            },
+            "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+            "typeVersion": 2,
+            "position": [
+                -288,
+                -112
+            ],
+            "id": "a78db613-64a7-44fe-9d32-4b4ed420369a",
+            "name": "MCP Server Trigger",
+            "webhookId": "c455f220-a6ac-4e60-b914-ad267d192c19"
+        },
+        {
+            "parameters": {
                 "httpMethod": "POST",
                 "path": "c455f220-a6ac-4e60-b914-ad267d192c19",
-                "authentication": "none",
                 "options": {}
             },
-            "id": "webhook-trigger",
+            "id": "a5745461-5d23-4cb1-971e-4eef18cbb241",
             "name": "Webhook",
             "type": "n8n-nodes-base.webhook",
             "typeVersion": 1,
             "position": [
-                250,
-                100
+                -416,
+                192
             ],
             "webhookId": "c455f220-a6ac-4e60-b914-ad267d192c19"
         },
         {
             "parameters": {
-                "jsCode": "const input = $input.first().json; return { sender: input.params?.arguments?.sender || 'Unknown', message: input.params?.arguments?.text || '', hasImage: input.params?.arguments?.hasImage || false, timestamp: input.params?.arguments?.timestamp || new Date().toISOString(), messageId: input.params?.arguments?.messageId || '' };"
+                "jsCode": "const input = $input.first().json;\nconst args = input.body?.params?.arguments || {};\n\nreturn [\n  {\n    json: {\n      sender: args.sender ?? 'Unknown',\n      message: args.text ?? '',\n      image: args.image ?? null,\n      hasImage: args.hasImage ?? false,\n      timestamp: args.timestamp ?? new Date().toISOString(),\n      messageId: args.messageId ?? args.messageId ?? ''\n    }\n  }\n];"
             },
-            "id": "extract-data",
+            "id": "0f627801-9855-4d4d-a081-003973524ea7",
             "name": "Extract Message Data",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                450,
-                100
+                -64,
+                208
             ]
         },
         {
             "parameters": {
                 "conditions": {
-                    "boolean": [
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 1
+                    },
+                    "conditions": [
                         {
-                            "value1": "={{ $json.hasImage }}",
-                            "condition": "===",
-                            "value2": true
+                            "id": "57b7b6f4-f29a-431b-8daa-3b50e4292563",
+                            "leftValue": "={{ $json.hasImage }}",
+                            "rightValue": "true",
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true",
+                                "singleValue": true
+                            }
                         }
-                    ]
-                }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
             },
-            "id": "if-has-image",
+            "id": "153eb15f-ed24-494f-be89-9b06a8335133",
             "name": "Has Image?",
             "type": "n8n-nodes-base.if",
             "typeVersion": 2,
             "position": [
-                650,
-                100
+                160,
+                288
             ]
         },
         {
             "parameters": {
                 "jsCode": "return { ocr_text: 'Text extracted from image', ocr_confidence: 0.95 };"
             },
-            "id": "ocr-extract",
+            "id": "e44a1592-988c-4f7e-b959-47cd0efe803c",
             "name": "OCR Extract Text",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                450,
-                250
+                384,
+                192
             ]
         },
         {
             "parameters": {
                 "jsCode": "return { ocr_text: '', ocr_confidence: 0 };"
             },
-            "id": "no-image-branch",
+            "id": "810053c4-0902-43a8-85c2-f89d1b70a3ea",
             "name": "No Image",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                450,
-                400
+                384,
+                384
             ]
         },
         {
             "parameters": {
                 "jsCode": "const prev = $input.first().json; const fullText = 'User Message: ' + prev.message + (prev.ocr_text ? ' Image Text: ' + prev.ocr_text : ''); return { sender: prev.sender, originalMessage: prev.message, ocr_text: prev.ocr_text || '', fullText: fullText, timestamp: prev.timestamp, messageId: prev.messageId, hasImage: prev.hasImage };"
             },
-            "id": "combine-text",
+            "id": "4c210eee-5a21-44db-bb7c-2bda23b59b40",
             "name": "Combine Text",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                850,
-                100
+                608,
+                192
             ]
         },
         {
             "parameters": {
-                "model": "gemini-pro",
-                "messages": {
-                    "messageValues": [
-                        {
-                            "content": "Categorize into: Technical Issue, Billing Problem, Account Access, Refund Request, Feature Request, General Inquiry, Complaint, or Other. Respond with ONLY the category name. Message: {{ $json.fullText }}",
-                            "role": "user"
-                        }
-                    ]
-                },
-                "options": {}
+                "jsCode": "for (const item of $input.all()) {\n  $input.first().json.content.parts[0].text = ($input.first().json.content.parts[0].text || \"\").toLowerCase();\n}\n\nreturn $input.all();"
             },
-            "id": "llm-categorize",
-            "name": "LLM: Categorize",
-            "type": "n8n-nodes-base.googleGenerativeAi",
-            "typeVersion": 1,
-            "position": [
-                1050,
-                100
-            ],
-            "credentials": {
-                "googleGenerativeAiApi": "googleGenerativeAiApi"
-            }
-        },
-        {
-            "parameters": {
-                "jsCode": "const response = $input.first().json; const text = response.choices[0].message.content.trim(); return { category: text, confidence: 0.9 };"
-            },
-            "id": "parse-category",
+            "id": "fd4fb8ef-7896-4316-80a2-86dcb440e03e",
             "name": "Parse Category",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                1250,
-                100
+                1056,
+                192
             ]
         },
         {
             "parameters": {
-                "jsCode": "const category = $input.first().json.category; const kb = { 'Billing Problem': {found:true, solution:'Check invoice in settings. Update payment in Billing > Payment Methods.'}, 'Account Access': {found:true, solution:'Click Forgot Password on login page and check your email.'}, 'Refund Request': {found:true, solution:'Refunds process in 5-7 days. Check Account > Refund History.'}, 'Technical Issue': {found:false, solution:null}}; const result = kb[category] || {found:false, solution:null}; return { kb_found: result.found, kb_solution: result.solution, kb_category: category };"
+                "jsCode": "const query = ($input.first().json.content.parts[0].text || \"\").toLowerCase();\n\n// Hardcoded KB\nconst kb = {\n  application_id: \"L20260221000513196\",\n  status: \"Data Entry in Progress\",\n  name: \"Vijay B Naik\",\n  phone: \"8805686718\"\n};\n\nlet response = null;\n\nif (query.includes(\"application_id\")) {\n  response = `Your application ID is ${kb.application_id}.`;\n}\nelse if (query.includes(\"status\")) {\n  response = `Your loan status is \"${kb.status}\".`;\n}\nelse if (query.includes(\"name\")) {\n  response = `The applicant name is ${kb.name}.`;\n}\nelse if (query.includes(\"phone\")) {\n  response = `The registered phone number is ${kb.phone}.`;\n}\n\nreturn [\n  {\n    json: {\n      response: response,\n      response_type: response ? \"kb_solution\" : \"not_found\",\n      source: \"Knowledge Base\"\n    }\n  }\n];"
             },
-            "id": "kb-lookup",
+            "id": "b0fc7772-e709-4618-b3c7-35594008da4d",
             "name": "KB Lookup",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                1450,
-                100
+                1280,
+                192
             ]
         },
         {
             "parameters": {
                 "conditions": {
-                    "boolean": [
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 1
+                    },
+                    "conditions": [
                         {
-                            "value1": "={{ $json.kb_found }}",
-                            "condition": "===",
-                            "value2": true
+                            "id": "4301b841-df73-40eb-9818-7b5dd66f4c0e",
+                            "leftValue": "={{ $json.response_type }}",
+                            "rightValue": "kb_solution",
+                            "operator": {
+                                "type": "string",
+                                "operation": "equals"
+                            }
                         }
-                    ]
-                }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
             },
-            "id": "if-kb-found",
+            "id": "f2a2ad02-7c58-46c4-8029-ea2f7392597b",
             "name": "KB Solution Found?",
             "type": "n8n-nodes-base.if",
             "typeVersion": 2,
             "position": [
-                1650,
-                100
+                1504,
+                192
             ]
         },
         {
             "parameters": {
-                "jsCode": "return { response_type: 'kb_solution', response: $input.first().json.kb_solution, source: 'Knowledge Base', category: $input.first().json.category };"
+                "jsCode": "return { response_type: $input.first().json.response_type, response: $input.first().json.response, source: 'Knowledge Base', category: $input.first().json.category };"
             },
-            "id": "format-kb-response",
+            "id": "8caac10c-8623-438b-8e33-a9d8001207e5",
             "name": "Format KB Response",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                1650,
-                250
+                1840,
+                112
             ]
-        },
-        {
-            "parameters": {
-                "model": "gemini-pro",
-                "messages": {
-                    "messageValues": [
-                        {
-                            "content": "You are a professional support agent. Respond helpfully in 2-3 sentences. Category: {{ $json.category }} Message: {{ $json.fullText }}",
-                            "role": "user"
-                        }
-                    ]
-                },
-                "options": {}
-            },
-            "id": "llm-generate-response",
-            "name": "LLM: Generate Response",
-            "type": "n8n-nodes-base.googleGenerativeAi",
-            "typeVersion": 1,
-            "position": [
-                1650,
-                400
-            ],
-            "credentials": {
-                "googleGenerativeAiApi": "googleGenerativeAiApi"
-            }
         },
         {
             "parameters": {
                 "jsCode": "const response = $input.first().json; return { response_type: 'llm_generated', response: response.choices[0].message.content, source: 'AI Agent', category: response.category };"
             },
-            "id": "parse-llm-response",
+            "id": "901e5c62-f1ea-4f7a-82f3-fd796418a31e",
             "name": "Parse LLM Response",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                1850,
-                400
+                1952,
+                304
             ]
         },
         {
             "parameters": {
                 "jsCode": "const prev = $input.first().json; return { response_type: prev.response_type, response: prev.response, source: prev.source, category: prev.category };"
             },
-            "id": "merge-responses",
+            "id": "f417ed37-f85f-40db-b120-aaf3ead63243",
             "name": "Merge Responses",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                1900,
-                100
+                2176,
+                192
             ]
         },
         {
             "parameters": {
                 "method": "POST",
                 "url": "http://localhost:8000/api/send-response",
-                "authentication": "none",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
                         {
-                            "name": "response",
-                            "value": "={{ $json.response }}"
+                            "name": "message",
+                            "value": "={{ $json.response || \"No response available\" }}"
                         },
                         {
                             "name": "source",
                             "value": "={{ $json.source }}"
                         },
                         {
-                            "name": "category",
-                            "value": "={{ $json.category }}"
+                            "name": "response_type",
+                            "value": "={{ $json.response_type }}"
                         }
                     ]
                 },
                 "options": {}
             },
-            "id": "send-response-to-chat",
+            "id": "037a3d67-5a5e-4ce0-9663-2eb91053c1ba",
             "name": "Send Response to Chat",
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.1,
             "position": [
-                2100,
-                100
+                2400,
+                192
             ]
         },
         {
             "parameters": {
                 "jsCode": "const data = $input.first().json; return { ticket_title: '[' + data.category + '] Ticket', ticket_description: 'Category: ' + data.category + ', Message: ' + data.originalMessage, priority: data.category === 'Complaint' ? 'High' : 'Medium', status: 'open', assigned_to: 'support_team' };"
             },
-            "id": "create-ticket",
+            "id": "a610d264-4c57-431b-8fd4-1e62a0629d1b",
             "name": "Create Ticket",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                2100,
-                250
+                2624,
+                192
             ]
         },
         {
             "parameters": {
                 "method": "POST",
                 "url": "http://localhost:8000/api/tickets",
-                "authentication": "none",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
@@ -301,230 +287,338 @@
                 },
                 "options": {}
             },
-            "id": "post-ticket",
+            "id": "32569d27-f760-45e5-a9c7-f23809a0c080",
             "name": "Post Ticket to System",
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.1,
             "position": [
-                2300,
-                250
+                2848,
+                192
             ]
         },
         {
             "parameters": {
                 "jsCode": "return { status: 'completed' };"
             },
-            "id": "end-node",
+            "id": "3fef1203-165a-4f0d-a14a-5c2d5c3114a6",
             "name": "End",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                2400,
-                100
+                3072,
+                192
             ]
+        },
+        {
+            "parameters": {
+                "resource": "document",
+                "modelId": {
+                    "__rl": true,
+                    "value": "models/gemini-2.0-flash",
+                    "mode": "list",
+                    "cachedResultName": "models/gemini-2.0-flash"
+                },
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.googleGemini",
+            "typeVersion": 1.1,
+            "position": [
+                1728,
+                304
+            ],
+            "id": "d5f5a42f-5d05-4be6-bd48-087cf4ce95c2",
+            "name": "Analyze document2",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "S8Zor47oy4HOqLFz",
+                    "name": "Google Gemini(PaLM) Api account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "resource": "document",
+                "modelId": {
+                    "__rl": true,
+                    "value": "models/gemma-3-1b-it",
+                    "mode": "list",
+                    "cachedResultName": "models/gemma-3-1b-it"
+                },
+                "text": "=You are a support ticket classifier.\n\nBased on the following extracted data from a screenshot or message, classify the issue into ONE of these categories:\n\nAPPLICATION_ID\nLOAN_STATUS\nKYC\nBANK_DETAILS\nCO_APPLICANT\nDOCUMENTS\nPAYMENTS\nACCOUNTS\nOTHER\n\nReturn ONLY the category name.\n\nExtracted Data:\n{{ $json.ocr_text }}\n{{ $json.fullText }}",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.googleGemini",
+            "typeVersion": 1.1,
+            "position": [
+                832,
+                192
+            ],
+            "id": "894f9a17-1769-4ff1-a89a-61549e55e790",
+            "name": "categorize",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "Yb4rzCpZVxnHFqpQ",
+                    "name": "Google Gemini(PaLM) Api account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                112,
+                400
+            ],
+            "id": "d025f997-dabd-4a9a-b190-f7deebdea075",
+            "name": "Code in JavaScript"
         }
     ],
+    "pinData": {
+        "Webhook": [
+            {
+                "json": {
+                    "headers": {
+                        "accept": "application/json, text/event-stream",
+                        "content-type": "application/json",
+                        "user-agent": "axios/1.13.6",
+                        "content-length": "270",
+                        "accept-encoding": "gzip, compress, deflate, br",
+                        "host": "localhost:5678",
+                        "connection": "keep-alive"
+                    },
+                    "params": {},
+                    "query": {},
+                    "body": {
+                        "jsonrpc": "2.0",
+                        "method": "call_tool",
+                        "params": {
+                            "name": "message_received",
+                            "arguments": {
+                                "sender": "Guest",
+                                "text": "whats application id",
+                                "image": "[Image - 188 KB]",
+                                "timestamp": "2026-03-06T12:07:38.728Z",
+                                "messageId": "msg_1772798858728_1ldmehi5f",
+                                "hasImage": false
+                            }
+                        },
+                        "id": 6093
+                    },
+                    "webhookUrl": "http://localhost:5678/webhook-test/c455f220-a6ac-4e60-b914-ad267d192c19",
+                    "executionMode": "test"
+                }
+            }
+        ]
+    },
     "connections": {
-        "webhook-trigger": {
+        "Webhook": {
             "main": [
                 [
                     {
-                        "node": "extract-data",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "extract-data": {
-            "main": [
-                [
-                    {
-                        "node": "if-has-image",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "if-has-image": {
-            "main": [
-                [
-                    {
-                        "node": "ocr-extract",
-                        "type": "main",
-                        "index": 0
-                    }
-                ],
-                [
-                    {
-                        "node": "no-image-branch",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "ocr-extract": {
-            "main": [
-                [
-                    {
-                        "node": "combine-text",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "no-image-branch": {
-            "main": [
-                [
-                    {
-                        "node": "combine-text",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "combine-text": {
-            "main": [
-                [
-                    {
-                        "node": "llm-categorize",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "llm-categorize": {
-            "main": [
-                [
-                    {
-                        "node": "parse-category",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "parse-category": {
-            "main": [
-                [
-                    {
-                        "node": "kb-lookup",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "kb-lookup": {
-            "main": [
-                [
-                    {
-                        "node": "if-kb-found",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "if-kb-found": {
-            "main": [
-                [
-                    {
-                        "node": "format-kb-response",
-                        "type": "main",
-                        "index": 0
-                    }
-                ],
-                [
-                    {
-                        "node": "llm-generate-response",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "format-kb-response": {
-            "main": [
-                [
-                    {
-                        "node": "merge-responses",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "llm-generate-response": {
-            "main": [
-                [
-                    {
-                        "node": "parse-llm-response",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "parse-llm-response": {
-            "main": [
-                [
-                    {
-                        "node": "merge-responses",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "merge-responses": {
-            "main": [
-                [
-                    {
-                        "node": "send-response-to-chat",
+                        "node": "Extract Message Data",
                         "type": "main",
                         "index": 0
                     },
                     {
-                        "node": "create-ticket",
+                        "node": "Code in JavaScript",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "send-response-to-chat": {
+        "Extract Message Data": {
             "main": [
                 [
                     {
-                        "node": "end-node",
+                        "node": "Has Image?",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Combine Text",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "create-ticket": {
+        "Has Image?": {
             "main": [
                 [
                     {
-                        "node": "post-ticket",
+                        "node": "OCR Extract Text",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "No Image",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "post-ticket": {
+        "OCR Extract Text": {
             "main": [
                 [
                     {
-                        "node": "end-node",
+                        "node": "Combine Text",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "No Image": {
+            "main": [
+                [
+                    {
+                        "node": "Combine Text",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Combine Text": {
+            "main": [
+                [
+                    {
+                        "node": "categorize",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Category": {
+            "main": [
+                [
+                    {
+                        "node": "KB Lookup",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "KB Lookup": {
+            "main": [
+                [
+                    {
+                        "node": "KB Solution Found?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "KB Solution Found?": {
+            "main": [
+                [
+                    {
+                        "node": "Format KB Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Analyze document2",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Analyze document2": {
+            "main": [
+                [
+                    {
+                        "node": "Parse LLM Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse LLM Response": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Responses",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format KB Response": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Responses",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Merge Responses": {
+            "main": [
+                [
+                    {
+                        "node": "Send Response to Chat",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Response to Chat": {
+            "main": [
+                [
+                    {
+                        "node": "Create Ticket",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Ticket": {
+            "main": [
+                [
+                    {
+                        "node": "Post Ticket to System",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Post Ticket to System": {
+            "main": [
+                [
+                    {
+                        "node": "End",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "categorize": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Category",
                         "type": "main",
                         "index": 0
                     }
@@ -532,7 +626,17 @@
             ]
         }
     },
+    "active": false,
     "settings": {
-        "executionOrder": "v1"
-    }
+        "executionOrder": "v1",
+        "binaryMode": "separate",
+        "availableInMCP": false
+    },
+    "versionId": "f937e0ec-2c1d-48c0-99c5-4b3b577d867b",
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "a886ed4d9f2466f6b9eec25bbab4e94fba23c964ad199c738803869480df11ae"
+    },
+    "id": "UOvPV9urODKj1jf8",
+    "tags": []
 }
